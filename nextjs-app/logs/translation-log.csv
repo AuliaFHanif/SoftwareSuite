@@ -1,0 +1,4 @@
+timestamp,type,phase,step,message,duration_ms,totalDurationMs
+2026-05-12T16:39:12.372Z,IMAGE,PROCESSING,"Request Handler","Request body parsed",5,
+2026-05-12T16:39:12.367Z,IMAGE,START,"Request Handler","Translation request received",0,
+2026-05-12T16:39:12.372Z,IMAGE,PROCESSING,"Gemma Translation","Sending request to Ollama",5,

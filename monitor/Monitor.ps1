@@ -36,9 +36,11 @@ function Get-Config {
         GitLabWebPort    = rv 'GitLabWebPort'  8090
         GitLabSSHPort    = rv 'GitLabSSHPort'  2222
         MattermostPort   = rv 'MattermostPort' 8065
+        NextjsPort       = rv 'NextjsPort'     3000
         OllamaPort       = rv 'OllamaPort'     11434
         GitLabVMIP       = rv 'GitLabVMIP'     '192.168.100.10'
         MattermostVMIP   = rv 'MattermostVMIP' '192.168.100.11'
+        NextjsVMIP       = rv 'NextjsVMIP'     '192.168.100.12'
         NATName          = 'AllInOneNAT'
     }
 }
@@ -53,7 +55,7 @@ function Set-ConfigValue([string]$Name, $Value) {
 [xml]$XAML = @'
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="AllInOne Monitor" Height="680" Width="860"
+        Title="AllInOne Monitor" Height="800" Width="860"
         WindowStartupLocation="CenterScreen" ResizeMode="CanMinimize"
         Background="#0F1117" FontFamily="Segoe UI" FontSize="13">
     <Window.Resources>
@@ -165,6 +167,7 @@ function Set-ConfigValue([string]$Name, $Value) {
         <!-- Main content -->
         <Grid Grid.Row="1" Margin="0,6,0,0">
             <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="Auto"/>
@@ -319,8 +322,55 @@ function Set-ConfigValue([string]$Name, $Value) {
                 </Grid>
             </Border>
 
-            <!-- Log area -->
+            <!-- Next.js Card -->
             <Border Grid.Row="3" Style="{StaticResource Card}">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,20,0">
+                        <Ellipse x:Name="NextjsLED" Width="14" Height="14" Fill="#E05260" Margin="0,0,10,0"
+                                 VerticalAlignment="Center">
+                            <Ellipse.Effect>
+                                <DropShadowEffect Color="#E05260" Opacity="0.7" BlurRadius="6" ShadowDepth="0"/>
+                            </Ellipse.Effect>
+                        </Ellipse>
+                        <TextBlock Text="Next.js App" FontSize="16" FontWeight="Bold" Foreground="#E2E8F4" VerticalAlignment="Center"/>
+                    </StackPanel>
+
+                    <Grid Grid.Column="1">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Text="STATUS" Style="{StaticResource LabelText}"/>
+                            <TextBlock x:Name="NextjsStatus" Text="Stopped" Style="{StaticResource ValueText}"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="1">
+                            <TextBlock Text="CPU / RAM" Style="{StaticResource LabelText}"/>
+                            <TextBlock x:Name="NextjsResources" Text="— / —" Style="{StaticResource ValueText}"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="2">
+                            <TextBlock Text="PORT" Style="{StaticResource LabelText}"/>
+                            <TextBox x:Name="NextjsPortBox" Style="{StaticResource PortInput}" Text="3000"/>
+                        </StackPanel>
+                    </Grid>
+
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="10,0,0,0">
+                        <Button x:Name="NextjsStart" Content="▶  Start" Style="{StaticResource BtnPrimary}" Width="90"/>
+                        <Button x:Name="NextjsStop"  Content="■  Stop"  Style="{StaticResource BtnStop}"    Width="90"/>
+                        <Button x:Name="NextjsPort"  Content="↔ Apply Port" Style="{StaticResource BtnPrimary}" Width="110"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- Log area -->
+            <Border Grid.Row="4" Style="{StaticResource Card}">
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
@@ -348,6 +398,9 @@ function Set-ConfigValue([string]$Name, $Value) {
                 <TextBlock Text="Mattermost: " Style="{StaticResource LabelText}" VerticalAlignment="Center"/>
                 <TextBlock x:Name="FooterMattermost" Text="http://localhost:8065" Foreground="#4F6EF7"
                            FontSize="12" VerticalAlignment="Center" Margin="0,0,24,0"/>
+                <TextBlock Text="Next.js: " Style="{StaticResource LabelText}" VerticalAlignment="Center"/>
+                <TextBlock x:Name="FooterNextjs" Text="http://localhost:3000" Foreground="#4F6EF7"
+                           FontSize="12" VerticalAlignment="Center" Margin="0,0,24,0"/>
                 <TextBlock Text="Ollama: " Style="{StaticResource LabelText}" VerticalAlignment="Center"/>
                 <TextBlock x:Name="FooterOllama" Text="http://localhost:11434" Foreground="#4F6EF7"
                            FontSize="12" VerticalAlignment="Center"/>
@@ -372,9 +425,11 @@ $cfg = Get-Config
 (ctrl 'GitLabWebPortBox').Text  = $cfg.GitLabWebPort
 (ctrl 'GitLabSSHPortBox').Text  = $cfg.GitLabSSHPort
 (ctrl 'MattermostPortBox').Text = $cfg.MattermostPort
+(ctrl 'NextjsPortBox').Text     = $cfg.NextjsPort
 (ctrl 'OllamaPortBox').Text     = $cfg.OllamaPort
 (ctrl 'FooterGitLab').Text      = "http://localhost:$($cfg.GitLabWebPort)"
 (ctrl 'FooterMattermost').Text  = "http://localhost:$($cfg.MattermostPort)"
+(ctrl 'FooterNextjs').Text      = "http://localhost:$($cfg.NextjsPort)"
 (ctrl 'FooterOllama').Text      = "http://localhost:$($cfg.OllamaPort)"
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -466,6 +521,21 @@ function Refresh-Stats {
     } else {
         Set-ServiceStatus 'Ollama' 'Stopped'
         (ctrl 'OllamaResources').Text = "— / —"
+    }
+
+    # Nextjs VM
+    try {
+        $vm = Get-VM -Name 'NextjsVM' -ErrorAction Stop
+        Set-ServiceStatus 'Nextjs' $(if ($vm.State -eq 'Running') {'Running'} else {'Stopped'})
+        if ($vm.State -eq 'Running') {
+            $m = Measure-VM -VMName 'NextjsVM' -ErrorAction SilentlyContinue
+            $cpu = if ($m) { "$([math]::Round($m.AvgCPUUsage,1))%" } else { "?%" }
+            $ram = if ($m) { "$([math]::Round($m.AvgRAMUsage/1MB,0)) MB" } else { "? MB" }
+            (ctrl 'NextjsResources').Text = "$cpu / $ram"
+        } else { (ctrl 'NextjsResources').Text = "— / —" }
+    } catch {
+        Set-ServiceStatus 'Nextjs' 'Stopped'
+        (ctrl 'NextjsResources').Text = "VM not found"
     }
 }
 
@@ -579,6 +649,32 @@ function Set-NATPort([string]$Proto, [int]$OldExternal, [int]$NewExternal, [stri
     $script:cfg = Get-Config
     (ctrl 'FooterOllama').Text = "http://localhost:$newPort"
     Write-UILog "Ollama port set to $newPort (restart Ollama to apply)."
+})
+
+# Nextjs Start
+(ctrl 'NextjsStart').Add_Click({
+    Write-UILog "Starting NextjsVM..."
+    Set-ServiceStatus 'Nextjs' 'Starting'
+    try { Start-VM -Name 'NextjsVM'; Write-UILog "NextjsVM started." }
+    catch { Write-UILog "ERROR: $_" }
+})
+
+# Nextjs Stop
+(ctrl 'NextjsStop').Add_Click({
+    Write-UILog "Stopping NextjsVM..."
+    try { Stop-VM -Name 'NextjsVM' -Force; Write-UILog "NextjsVM stopped." }
+    catch { Write-UILog "ERROR: $_" }
+})
+
+# Nextjs Apply Port
+(ctrl 'NextjsPort').Add_Click({
+    $newPort = [int](ctrl 'NextjsPortBox').Text
+    $ok = Set-NATPort TCP $cfg.NextjsPort $newPort $cfg.NextjsVMIP 3000
+    if ($ok) {
+        Set-ConfigValue 'NextjsPort' $newPort
+        $script:cfg = Get-Config
+        (ctrl 'FooterNextjs').Text = "http://localhost:$newPort"
+    }
 })
 
 # ─────────────────────────────────────────────────────────────────────────────

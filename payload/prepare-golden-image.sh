@@ -41,6 +41,8 @@ common_setup() {
     local static_ip
     if [[ "$ROLE" == "gitlab" ]]; then
         static_ip="192.168.100.10"
+    elif [[ "$ROLE" == "nextjs" ]]; then
+        static_ip="192.168.100.12"
     else
         static_ip="192.168.100.11"
     fi
@@ -184,6 +186,46 @@ UNIT
     log "  Complete setup at the web UI on first access."
 }
 
+# ─── Next.js ─────────────────────────────────────────────────────────────────
+install_nextjs() {
+    log "Installing Next.js App on Ubuntu 24.04 LTS..."
+    ufw allow 3000/tcp comment 'Next.js HTTP'
+    ufw --force enable
+
+    log "Installing Node.js 22.x LTS..."
+    curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
+    apt-get install -y nodejs
+
+    log "Installing PM2 for process management..."
+    npm install -g pm2
+
+    log "Setting up app directory..."
+    mkdir -p /opt/nextjs-app
+    if [[ -f "/root/nextjs-app.tar.gz" ]]; then
+        log "Found nextjs-app.tar.gz, extracting..."
+        tar -xzf /root/nextjs-app.tar.gz -C /opt/nextjs-app
+        cd /opt/nextjs-app
+        npm install --production
+    else
+        log "Warning: /root/nextjs-app.tar.gz not found. Initializing a fresh app."
+        cd /opt
+        npx -y create-next-app@latest nextjs-app --ts --app --src-dir --eslint --use-npm --no-tailwind
+        cd /opt/nextjs-app
+        npm run build
+    fi
+
+    log "Setting up environment variables..."
+    echo "OLLAMA_URL=http://192.168.100.1:11434" > /opt/nextjs-app/.env.local
+
+    log "Starting app with PM2..."
+    pm2 start npm --name "nextjs-app" -- start
+    pm2 save
+    env PATH=$PATH:/usr/bin pm2 startup systemd -u root --hp /root
+
+    log "Next.js installation complete."
+    log "  Web UI: http://192.168.100.12:3000"
+}
+
 # ─── Cleanup before VHDX export ──────────────────────────────────────────────
 cleanup_and_shutdown() {
     log "Cleaning up before export..."
@@ -212,6 +254,7 @@ common_setup
 case "$ROLE" in
     gitlab)     install_gitlab     ;;
     mattermost) install_mattermost ;;
-    *)          err "Unknown ROLE '$ROLE'. Use 'gitlab' or 'mattermost'." ;;
+    nextjs)     install_nextjs     ;;
+    *)          err "Unknown ROLE '$ROLE'. Use 'gitlab', 'mattermost', or 'nextjs'." ;;
 esac
 cleanup_and_shutdown

@@ -1,6 +1,6 @@
 ; =============================================================================
 ; AllInOne Installer — Air-Gapped Hyper-V Edition
-; Deploys: Ollama (native), GitLab CE (Hyper-V VM), Mattermost (Hyper-V VM)
+; Deploys: Ollama (native), GitLab CE (Hyper-V VM), Mattermost (Hyper-V VM), Next.js (Hyper-V VM)
 ; Requires: Windows 10/11 Pro/Enterprise, hardware virtualisation enabled
 ; =============================================================================
 
@@ -51,6 +51,7 @@ Source: "payload\OllamaSetup.exe";           DestDir: "{tmp}";                  
 ; Golden VM disk images — large files, copied to a permanent location
 Source: "payload\images\GitLabVM.vhdx";      DestDir: "{commonappdata}\AllInOneDevStack\VMs"; Flags: ignoreversion
 Source: "payload\images\MattermostVM.vhdx";  DestDir: "{commonappdata}\AllInOneDevStack\VMs"; Flags: ignoreversion
+Source: "payload\images\NextjsVM.vhdx";      DestDir: "{commonappdata}\AllInOneDevStack\VMs"; Flags: ignoreversion skipifsourcedoesntexist
 ; PowerShell helper scripts
 Source: "scripts\Setup-HyperV.ps1";          DestDir: "{tmp}";                   Flags: deleteafterinstall
 ; Monitoring dashboard — kept permanently
@@ -94,9 +95,9 @@ Filename: "{tmp}\OllamaSetup.exe";
     StatusMsg: "{cm:InstallingOllama}";
     Flags: waituntilterminated
 
-; Step 6: Start both VMs
+; Step 6: Start all VMs
 Filename: "powershell.exe";
-    Parameters: "-NonInteractive -ExecutionPolicy Bypass -Command ""Start-VM -Name GitLabVM; Start-VM -Name MattermostVM""";
+    Parameters: "-NonInteractive -ExecutionPolicy Bypass -Command ""Start-VM -Name GitLabVM; Start-VM -Name MattermostVM; Start-VM -Name NextjsVM -ErrorAction SilentlyContinue""";
     StatusMsg: "Starting virtual machines...";
     Flags: runhidden waituntilterminated
 
@@ -133,9 +134,12 @@ Root: HKLM; Subkey: "SOFTWARE\AllInOneDevStack"; ValueType: string; ValueName: "
 Root: HKLM; Subkey: "SOFTWARE\AllInOneDevStack"; ValueType: dword;  ValueName: "GitLabWebPort";    ValueData: "8090"
 Root: HKLM; Subkey: "SOFTWARE\AllInOneDevStack"; ValueType: dword;  ValueName: "GitLabSSHPort";    ValueData: "2222"
 Root: HKLM; Subkey: "SOFTWARE\AllInOneDevStack"; ValueType: dword;  ValueName: "MattermostPort";   ValueData: "8065"
+Root: HKLM; Subkey: "SOFTWARE\AllInOneDevStack"; ValueType: dword;  ValueName: "NextjsPort";       ValueData: "3000"
 Root: HKLM; Subkey: "SOFTWARE\AllInOneDevStack"; ValueType: dword;  ValueName: "OllamaPort";       ValueData: "11434"
 Root: HKLM; Subkey: "SOFTWARE\AllInOneDevStack"; ValueType: string; ValueName: "GitLabVMIP";       ValueData: "192.168.100.10"
 Root: HKLM; Subkey: "SOFTWARE\AllInOneDevStack"; ValueType: string; ValueName: "MattermostVMIP";   ValueData: "192.168.100.11"
+Root: HKLM; Subkey: "SOFTWARE\AllInOneDevStack"; ValueType: string; ValueName: "NextjsVMIP";       ValueData: "192.168.100.12"
+Root: HKLM; Subkey: "SYSTEM\CurrentControlSet\Control\Session Manager\Environment"; ValueType: string; ValueName: "OLLAMA_HOST"; ValueData: "0.0.0.0:11434"
 
 ; =============================================================================
 ; Uninstall — stop and remove VMs, remove NAT

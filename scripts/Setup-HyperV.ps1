@@ -40,9 +40,12 @@ $GitLabVMName    = 'GitLabVM'
 $GitLabVMIP      = '192.168.100.10'
 $MattermostVMName= 'MattermostVM'
 $MattermostVMIP  = '192.168.100.11'
+$NextjsVMName    = 'NextjsVM'
+$NextjsVMIP      = '192.168.100.12'
 $GitLabWebPort   = 8090
 $GitLabSSHPort   = 2222
 $MattermostPort  = 8065
+$NextjsPort      = 3000
 
 # ─────────────────────────────────────────────────────────────────────────────
 switch ($Action) {
@@ -115,6 +118,7 @@ switch ($Action) {
     $vmConfigs = @(
         @{ Name=$GitLabVMName;     VHDX="$VHDXDir\GitLabVM.vhdx";     RAM=4GB; CPU=2 }
         @{ Name=$MattermostVMName; VHDX="$VHDXDir\MattermostVM.vhdx"; RAM=2GB; CPU=2 }
+        @{ Name=$NextjsVMName;     VHDX="$VHDXDir\NextjsVM.vhdx";     RAM=1GB; CPU=1 }
     )
 
     foreach ($cfg in $vmConfigs) {
@@ -179,6 +183,9 @@ switch ($Action) {
 
     # Mattermost
     Add-NATRule -Proto TCP -ExternalPort $MattermostPort -InternalIP $MattermostVMIP -InternalPort 8065
+
+    # Next.js
+    Add-NATRule -Proto TCP -ExternalPort $NextjsPort -InternalIP $NextjsVMIP -InternalPort 3000
 
     Write-Log "NAT rules configured."
 }

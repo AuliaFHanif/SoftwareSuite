@@ -9,6 +9,7 @@ Deploys three services on any **Windows 10/11 Pro/Enterprise** machine with no i
 | **Ollama** | Native Windows install | `http://localhost:11434` |
 | **GitLab CE** | Hyper-V VM (Ubuntu 24.04) | `http://localhost:8090` |
 | **Mattermost** | Hyper-V VM (Ubuntu 24.04) | `http://localhost:8065` |
+| **Next.js App** | Hyper-V VM (Ubuntu 24.04) | `http://localhost:3000` |
 
 A dark WPF monitoring dashboard lets employees start/stop services, change ports, and watch resource usage.
 
@@ -38,7 +39,8 @@ AllInOneInstaller/
     ├── OllamaSetup.exe              Download from https://ollama.com/download/windows
     ├── images/
     │   ├── GitLabVM.vhdx            Golden disk image (see Phase 1, Step 2)
-    │   └── MattermostVM.vhdx        Golden disk image (see Phase 1, Step 3)
+    │   ├── MattermostVM.vhdx        Golden disk image (see Phase 1, Step 3)
+    │   └── NextjsVM.vhdx            Golden disk image (see Phase 1, Step 4)
     └── prepare-golden-image.sh      Run inside Ubuntu VMs to bake the services
 ```
 
@@ -155,7 +157,30 @@ Copy-Item $vhdx ".\payload\images\MattermostVM.vhdx"
 
 ---
 
-### Step 4 — Download Ollama
+### Step 4 — Build the Next.js App golden VHDX
+
+Before building the VM, build the Next.js app locally and package it:
+```powershell
+cd nextjs-app
+npm install
+npm run build
+tar -czf ..\payload\nextjs-app.tar.gz .next node_modules package.json public
+```
+
+Repeat Step 2 with these differences:
+
+| Setting | Value |
+|---|---|
+| VM name | `NextjsVM-Build` |
+| Disk size | `20 GB` |
+| Script command | `sudo ROLE=nextjs ./prepare-golden-image.sh` |
+| Output file | `payload\images\NextjsVM.vhdx` |
+
+(Make sure to copy `payload\nextjs-app.tar.gz` to the VM's `/root` directory before running the script).
+
+---
+
+### Step 5 — Download Ollama
 
 Download the Windows installer from https://ollama.com/download/windows and save it as:
 
@@ -165,7 +190,7 @@ payload\OllamaSetup.exe
 
 ---
 
-### Step 5 — Compile the installer
+### Step 6 — Compile the installer
 
 1. Download and install **Inno Setup 6** from https://jrsoftware.org/isdl.php
 2. Open `installer.iss` in Inno Setup IDE
@@ -174,15 +199,17 @@ payload\OllamaSetup.exe
 
 ---
 
-### Step 6 — Commit everything to SVN
+### Step 7 — Commit everything to SVN
 
 ```bash
 svn add payload/images/GitLabVM.vhdx
 svn add payload/images/MattermostVM.vhdx
+svn add payload/images/NextjsVM.vhdx
 svn add payload/OllamaSetup.exe
 svn add Output/AllInOneSetup.exe
 svn propset svn:mime-type application/octet-stream payload/images/GitLabVM.vhdx
 svn propset svn:mime-type application/octet-stream payload/images/MattermostVM.vhdx
+svn propset svn:mime-type application/octet-stream payload/images/NextjsVM.vhdx
 svn propset svn:mime-type application/octet-stream payload/OllamaSetup.exe
 svn propset svn:mime-type application/octet-stream Output/AllInOneSetup.exe
 svn commit -m "Add AllInOne installer payload and compiled setup"
@@ -217,7 +244,7 @@ svn checkout svn://your-svn-server/AllInOneInstaller C:\AllInOneInstaller
 | Files | VHDXs copied to `C:\ProgramData\AllInOneDevStack\VMs\` |
 | Hyper-V | Enables the Hyper-V Windows feature (may trigger reboot) |
 | Network | Creates `AllInOneSwitch` (internal) + Windows NAT `192.168.100.0/24` |
-| VMs | Creates `GitLabVM` and `MattermostVM` from the golden VHDXs |
+| VMs | Creates `GitLabVM`, `MattermostVM`, and `NextjsVM` from the golden VHDXs |
 | NAT rules | Maps host ports to VM internal ports |
 | Ollama | Installs Ollama natively on the Windows host |
 | VMs boot | Both VMs are started automatically |
@@ -237,6 +264,7 @@ After the installer finishes:
 | Ollama | ~30 seconds | `http://localhost:11434` returns `Ollama is running` |
 | GitLab | ~3-5 minutes | `http://localhost:8090` loads the sign-in page |
 | Mattermost | ~1-2 minutes | `http://localhost:8065` loads the setup wizard |
+| Next.js App | ~1 minute | `http://localhost:3000` loads the app |
 
 GitLab runs `gitlab-ctl reconfigure` on first boot which takes a few minutes — this is normal.
 
@@ -270,8 +298,8 @@ GitLab runs `gitlab-ctl reconfigure` on first boot which takes a few minutes —
 # Test Ollama is running
 Invoke-RestMethod http://localhost:11434
 
-# Pull a model (requires internet — do this during setup, before going air-gapped)
-ollama pull llama3.2
+# Pull the model (requires internet — do this during setup, before going air-gapped)
+ollama pull translategemma:4b
 
 # Or copy a model from another machine that already has it:
 # On source: ollama show --modelfile llama3.2 > modelfile.txt
@@ -302,6 +330,7 @@ Launch from the **"AllInOne Monitor"** Desktop shortcut (auto-elevates to Admin)
 | GitLab Web | **8090** | 80 (inside VM) |
 | GitLab SSH | **2222** | 22 (inside VM) |
 | Mattermost | **8065** | 8065 (inside VM) |
+| Next.js App| **3000** | 3000 (inside VM) |
 | Ollama API | **11434** | native (no VM) |
 
 All ports can be changed post-install via the monitoring dashboard without restarting VMs.
